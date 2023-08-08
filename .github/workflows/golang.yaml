@@ -7,13 +7,6 @@ jobs:
 
     runs-on: ubuntu-latest
     steps:
-      # action文档：
-      # https://github.com/marketplace/actions/setup-sqlite-environment
-      - uses: actions/setup-sqlite@v1
-        with:
-          sqlite-version: 3.40.0
-          sqlite-year: 2023
-
       - uses: actions/checkout@v3
 
       - name: Set up Go
