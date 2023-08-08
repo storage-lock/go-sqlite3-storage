@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-const defaultTestDbPath = "test_data/storage_lock_test.db3"
+const defaultTestDbPath = "storage_lock_test.db3"
 
 func TestNewMySQLStorage(t *testing.T) {
 	dbPath := os.Getenv("STORAGE_LOCK_SQLITE3_DB_PATH")
