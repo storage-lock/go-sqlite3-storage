@@ -7,7 +7,6 @@ jobs:
 
     runs-on: ubuntu-latest
     steps:
-      -
       # action文档：
       # https://github.com/marketplace/actions/setup-sqlite-environment
       - uses: actions/setup-sqlite@v1
