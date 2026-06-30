@@ -19,8 +19,6 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
 github.com/rogpeppe/go-internal v1.10.0 h1:TMyTOH3F/DB16zRVcYyreMH6GnZZrwQVAoYjRBZyWFQ=
 github.com/storage-lock/go-events v0.0.1 h1:8abGhlhmJGzn8Pq/LjAbPfAyGs70ZNjwoc7/OITMmUg=
 github.com/storage-lock/go-events v0.0.1/go.mod h1:DKwPgfuq8T8CyPLipH+0XHsNt8hEN4g9krUGfosU2oY=
-github.com/storage-lock/go-storage v0.0.2 h1:N5glUlrr1bbJ8ixYsPmOv+TuhIOObX/65+hrNMPWFDc=
-github.com/storage-lock/go-storage v0.0.2/go.mod h1:4vuU2nLdbmzj2UIBKpwB5lj8RI+GnPDZ4YHZ7QAcFHE=
 github.com/storage-lock/go-storage-events v0.0.2 h1:gXGiltZvRzZOXsjqhlyessa+Zpk4qI2kjyRGAGsknwM=
 github.com/storage-lock/go-storage-events v0.0.2/go.mod h1:+8kr/WdyaVUJiCqi2MKZkWxeIF8DmhTm+s0OkE+XKaw=
 github.com/storage-lock/go-storage-lock v0.0.2 h1:bN2UG+PFwBToRtTSv4QjwSg/C3ytr7GASMnW1r4X8ZM=

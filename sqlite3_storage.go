@@ -40,6 +40,17 @@ func (x *Sqlite3Storage) GetName() string {
 	return SqliteStorageName
 }
 
+// Capabilities 声明 SQLite3 存储支持的能力
+// SQLite3 通过主键唯一约束和 WHERE 条件更新支持 CAS，
+// 通过 STRFTIME('%s','now') 提供数据库服务器时间
+// 注意：SQLite3 是单文件数据库，主要用于单进程场景，多进程并发需要启用 WAL 模式
+func (x *Sqlite3Storage) Capabilities() []storage.StorageCapability {
+	return []storage.StorageCapability{
+		storage.CapabilityCAS,
+		storage.CapabilityReliableTime,
+	}
+}
+
 func (x *Sqlite3Storage) Init(ctx context.Context) (returnError error) {
 
 	if x.options.TableName == "" {
