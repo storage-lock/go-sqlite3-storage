@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang-infrastructure/go-iterator"
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/mattn/go-sqlite3"
 	"github.com/storage-lock/go-storage"
 	storage_lock "github.com/storage-lock/go-storage-lock"
 	"time"
@@ -48,6 +48,7 @@ func (x *Sqlite3Storage) Capabilities() []storage.StorageCapability {
 	return []storage.StorageCapability{
 		storage.CapabilityCAS,
 		storage.CapabilityReliableTime,
+		storage.CapabilityWatch,
 	}
 }
 
@@ -96,8 +97,12 @@ func (x *Sqlite3Storage) UpdateWithVersion(ctx context.Context, lockId string, e
 		}
 	}()
 
-	insertSql := fmt.Sprintf(`UPDATE %s SET version = ?, lock_information_json_string = ? WHERE lock_id = ? AND owner_id = ? AND version = ?`, x.options.TableName)
-	execContext, err := db.ExecContext(ctx, insertSql, newVersion, lockInformation.ToJsonString(), lockId, lockInformation.OwnerId, exceptedVersion)
+	// 注意：WHERE 条件只校验 lock_id + version，不校验 owner_id。
+	// 核心层抢占过期/墓碑记录时（rlockReclaim/lockExpired），传入的是新持有者的
+	// lockInformation，若加 owner_id 条件则永远匹配不上旧记录，抢占死循环。
+	// 对齐 sql-based 基类 Sql92Provider.UpdateWithVersionSql 的行为。
+	insertSql := fmt.Sprintf(`UPDATE %s SET version = ?, lock_information_json_string = ? WHERE lock_id = ? AND version = ?`, x.options.TableName)
+	execContext, err := db.ExecContext(ctx, insertSql, newVersion, lockInformation.ToJsonString(), lockId, exceptedVersion)
 	if err != nil {
 		return err
 	}
@@ -126,6 +131,14 @@ func (x *Sqlite3Storage) CreateWithVersion(ctx context.Context, lockId string, v
 	insertSql := fmt.Sprintf(`INSERT INTO %s (lock_id, owner_id, version, lock_information_json_string) VALUES (?, ?, ?, ?)`, x.options.TableName)
 	execContext, err := db.ExecContext(ctx, insertSql, lockId, lockInformation.OwnerId, version, lockInformation.ToJsonString())
 	if err != nil {
+		// lock_id 是主键，并发创建时后到者会触发主键唯一约束冲突，
+		// 这是"锁已存在"而不是随机存储错误，必须映射为 ErrLockAlreadyExists，
+		// 否则核心层 tryLock/tryRLock 不认这是可重试条件，直接把冲突当成硬错误返回，
+		// 分布式锁最基本的"后来者等待/重试"语义在 sqlite3 上就会失效。
+		var sqliteErr sqlite3.Error
+		if errors.As(err, &sqliteErr) && sqliteErr.Code == sqlite3.ErrConstraint {
+			return storage_lock.ErrLockAlreadyExists
+		}
 		return err
 	}
 	affected, err := execContext.RowsAffected()
@@ -178,7 +191,7 @@ func (x *Sqlite3Storage) Get(ctx context.Context, lockId string) (lockInformatio
 	}()
 
 	getLockSql := fmt.Sprintf("SELECT lock_information_json_string FROM %s WHERE lock_id = ?", x.options.TableName)
-	rs, err := db.Query(getLockSql, lockId)
+	rs, err := db.QueryContext(ctx, getLockSql, lockId)
 	if err != nil {
 		return "", err
 	}
@@ -209,7 +222,7 @@ func (x *Sqlite3Storage) GetTime(ctx context.Context) (now time.Time, returnErro
 	}()
 
 	var zero time.Time
-	rs, err := db.Query("SELECT STRFTIME('%s','now')")
+	rs, err := db.QueryContext(ctx, "SELECT STRFTIME('%s','now')")
 	if err != nil {
 		return zero, err
 	}
@@ -250,9 +263,14 @@ func (x *Sqlite3Storage) List(ctx context.Context) (lockInformation iterator.Ite
 		}
 	}()
 
-	rows, err := db.Query("SELECT * FROM %s", x.options.TableName)
+	listSql := fmt.Sprintf("SELECT lock_information_json_string FROM %s", x.options.TableName)
+	rows, err := db.QueryContext(ctx, listSql)
 	if err != nil {
 		return nil, err
 	}
 	return storage.NewSqlRowsIterator(rows), nil
+}
+
+func (x *Sqlite3Storage) Watch(ctx context.Context, lockId string) (<-chan *storage.LockInformation, error) {
+	return storage.NewPollingLockWatcher(x, 500*time.Millisecond).Watch(ctx, lockId)
 }
